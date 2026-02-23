@@ -6,6 +6,8 @@ from time import perf_counter
 
 jax.config.update("jax_enable_x64", True)
 
+THRESHOLD = 0.62
+
 def read_csv_data(filename):
     df = pd.read_csv(filename)
     X = jnp.array(df.iloc[:, :-1].values, dtype=jnp.float64)
@@ -13,6 +15,15 @@ def read_csv_data(filename):
     n = X.shape[0]
     X = jnp.hstack([jnp.ones((n, 1)), X])
     return X, y
+
+def train_test_split(X, y, test_size=0.2, seed=42):
+    n = X.shape[0]
+    key = jax.random.PRNGKey(seed)
+    perm = jax.random.permutation(key, n)
+    test_n = int(n * test_size)
+    test_idx = perm[:test_n]
+    train_idx = perm[test_n:]
+    return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
 def standardize(X):
     mean = jnp.mean(X[ :, 1: ], axis = 0)
@@ -62,22 +73,12 @@ def fit(X, y):
 
     return unstandardized(beta, mean, std)
 
-def accuracy(beta, X, y):
+def accuracy(beta, X, y, threshold=THRESHOLD):
     probs = sigmoid(X @ beta)
-    preds = (probs >= 0.5).astype(y.dtype)
+    preds = (probs >= threshold).astype(y.dtype)
     return jnp.mean(preds == y)
 
-def model(params, study_hours, attendance_percent, practice_exam_score):
-    y_hat = sigmoid(jnp.array([1.0, study_hours, attendance_percent, practice_exam_score]) @ params)
-    return 1 if y_hat >= 0.5 else 0
-    
-def main():
-    X, y = read_csv_data("data.csv")
-    params = fit(X, y)
-    pred = model(params, 15, 100, 100)
-    print("Pass" if pred == 1 else "Fail")
-    print(f'Accuracy: {accuracy(params, X, y)}')
-    prob = sigmoid(jnp.array([1, 15, 100, 100]) @ params)
-    print(prob)
-
-main()
+def predict(params, study_hours, attendance_percent, practice_exam_score, threshold=THRESHOLD):
+    x = jnp.array([1.0, study_hours, attendance_percent, practice_exam_score], dtype=jnp.float64)
+    p = sigmoid(x @ params)
+    return ("Pass" if p >= threshold else "Fail"), float(p)
