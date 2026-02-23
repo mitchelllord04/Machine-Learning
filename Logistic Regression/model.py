@@ -43,7 +43,7 @@ def fit(X, y):
     start = perf_counter()
 
     beta = jnp.zeros(standardized.shape[1])
-    alpha = -0.1
+    alpha = 0.1
 
     tol = 1e-3
     max_iters = 20000
@@ -55,7 +55,7 @@ def fit(X, y):
         delta = alpha * gradient
         if jnp.linalg.norm(delta) < tol:
             break
-        beta = beta + delta
+        beta = beta - delta
         iter_count += 1
     
     print(f'Took {iter_count} iterations: {perf_counter() - start :.2f}s')
